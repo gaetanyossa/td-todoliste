@@ -1,0 +1,17 @@
+# ============================================================
+# Etape 2 — ConfigMap (FROM SCRATCH)
+# ============================================================
+#
+# Configuration consommee par le frontend (nginx) pour joindre le backend.
+#   - BACKEND_HOST : nom DNS du Service backend (cf. 05-service-back.yaml)
+#   - BACKEND_PORT : port d'ecoute du Service backend (cf. 05-service-back.yaml)
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  labels:
+    app: frontend
+data:
+  BACKEND_HOST: "backend"
+  BACKEND_PORT: "3000"

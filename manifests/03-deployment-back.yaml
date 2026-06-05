@@ -1,0 +1,57 @@
+# ============================================================
+# Etape 3 — Deployment backend (COMPLETE)
+# ============================================================
+#
+# Image : stephanparichon/epsi-k8s-bff:1.0
+# Le backend ECOUTE sur le port 3000 et exige la variable
+# d'environnement ADMIN_TOKEN au demarrage (sinon crash).
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: stephanparichon/epsi-k8s-bff:1.0
+          ports:
+            - containerPort: 3000
+              name: http
+
+          # Injection de ADMIN_TOKEN depuis le Secret "backend-secret"
+          env:
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: admin-token
+
+          # Sonde de disponibilite : le pod ne recoit du trafic
+          # que lorsque /health repond 200 sur le port 3000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

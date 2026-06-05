@@ -1,0 +1,59 @@
+# ============================================================
+# Etape 4 — Deployment frontend (FROM SCRATCH)
+# ============================================================
+#
+# Image : stephanparichon/epsi-k8s-front:1.0
+# 2 replicas, port 80, RollingUpdate sans coupure de service.
+# Variables BACKEND_HOST / BACKEND_PORT injectees via la ConfigMap
+# "frontend-config" (envFrom + configMapRef).
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: frontend
+
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: stephanparichon/epsi-k8s-front:2.0
+          ports:
+            - containerPort: 80
+              name: http
+
+          # Toutes les cles de la ConfigMap sont exposees en variables d'env
+          envFrom:
+            - configMapRef:
+                name: frontend-config
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi

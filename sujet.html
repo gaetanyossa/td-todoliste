@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TD noté — Déploiement Kubernetes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;700&display=swap');
+
+        body { font-family: 'Inter', sans-serif; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .nav-link { transition: color 0.2s; }
+        .nav-link:hover { color: #60a5fa; }
+
+        .box-objectif { border-left: 4px solid #3b82f6; background-color: #eff6ff; }
+        .box-concept { border-left: 4px solid #8b5cf6; background-color: #faf5ff; }
+        .box-tache { border-left: 4px solid #0ea5e9; background-color: #f0f9ff; }
+        .box-validation { border-left: 4px solid #10b981; background-color: #ecfdf5; }
+        .box-reflexion { border-left: 4px solid #f59e0b; background-color: #fffbeb; }
+        .box-warning { border-left: 4px solid #ef4444; background-color: #fef2f2; }
+        .box-indice { border-left: 4px solid #64748b; background-color: #f8fafc; }
+        .box-tip { border-left: 4px solid #06b6d4; background-color: #ecfeff; }
+
+        .section-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 9999px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+            margin-right: 1rem;
+        }
+
+        details summary { cursor: pointer; user-select: none; }
+        details summary::-webkit-details-marker { display: none; }
+
+        .points-pill {
+            display: inline-flex;
+            align-items: center;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.6rem;
+            border-radius: 999px;
+            margin-left: 0.5rem;
+            letter-spacing: 0.03em;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+
+<!-- HEADER -->
+<header class="bg-slate-900 text-white shadow-xl sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto p-4 lg:p-5">
+        <div class="flex items-center gap-3 mb-3">
+            <svg class="w-8 h-8 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <div>
+                <h1 class="text-2xl font-bold">TD noté — Déploiement Kubernetes</h1>
+                <p class="text-xs text-slate-400 mt-0.5">Durée 2h</p>
+            </div>
+        </div>
+        <nav class="flex space-x-4 text-xs font-semibold overflow-x-auto pb-1 whitespace-nowrap">
+            <a href="#intro" class="nav-link text-slate-300">0. Contexte</a>
+            <a href="#prerequis" class="nav-link text-blue-400">1. Pré-requis</a>
+            <a href="#archi" class="nav-link text-emerald-400">2. Architecture</a>
+            <a href="#manifests" class="nav-link text-purple-400">3. Dossier manifests</a>
+            <a href="#etape1" class="nav-link text-rose-400">4. Secret</a>
+            <a href="#etape2" class="nav-link text-rose-400">5. ConfigMap</a>
+            <a href="#etape3" class="nav-link text-rose-400">6. Deploy back</a>
+            <a href="#etape4" class="nav-link text-rose-400">7. Deploy front</a>
+            <a href="#run" class="nav-link text-orange-400">8. Tester & Update</a>
+            <a href="#livrable" class="nav-link text-cyan-400">9. Livrable</a>
+            <a href="#bareme" class="nav-link text-yellow-400">10. Barème</a>
+        </nav>
+    </div>
+</header>
+
+<main class="max-w-5xl mx-auto p-4 lg:p-6 mt-4 flex-grow space-y-16">
+
+    <!-- ============================================================ -->
+    <!-- INTRODUCTION                                                  -->
+    <!-- ============================================================ -->
+    <section id="intro" class="scroll-mt-32">
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+            <h2 class="text-2xl font-bold text-slate-800 mb-3"><i class="fa-solid fa-flag mr-2 text-amber-500"></i>Contexte</h2>
+            <p class="text-gray-700 mb-4">Vous allez déployer une application web <strong>Mini Todo</strong> sur votre cluster <strong>k3d</strong> (déjà installé en TP précédent). L'application est composée de deux services :</p>
+            <ul class="list-disc list-inside text-gray-700 space-y-1 mb-4">
+                <li>un <strong>backend</strong> Node.js — API REST, stockage en mémoire</li>
+                <li>un <strong>frontend</strong> statique (nginx + HTML/JS) qui consomme l'API</li>
+            </ul>
+            <div class="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 text-sm text-amber-900 mb-4">
+                <i class="fa-solid fa-circle-info mr-2 text-amber-600"></i>
+                <strong>Vous n'avez PAS à développer ces applications.</strong> Les images Docker sont déjà publiées sur Docker Hub :
+                <ul class="list-disc list-inside mt-2 ml-2 code-font text-xs space-y-0.5">
+                    <li>stephanparichon/epsi-k8s-bff:1.0</li>
+                    <li>stephanparichon/epsi-k8s-front:1.0</li>
+                    <li>stephanparichon/epsi-k8s-front:2.0 (pour le rolling update)</li>
+                </ul>
+                <p class="mt-2 not-italic">Votre travail consiste <strong>uniquement à écrire les manifests Kubernetes</strong> qui les déploient.</p>
+            </div>
+        </div>
+
+        <div class="box-warning p-5 rounded-xl shadow-sm">
+            <h3 class="font-bold text-red-900 mb-2"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Perte de données — point important</h3>
+            <p class="text-sm text-red-900">Le backend stocke les todos <strong>en mémoire vive du pod</strong>. À chaque redémarrage du pod backend (rolling update, scaling, crash, <code class="code-font bg-red-100 px-1 rounded">kubectl delete pod</code>), <strong>toutes les todos sont effacées</strong>. C'est volontaire : ce TD ne couvre pas la persistance (PVC, StatefulSet). Pensez-y avant de tester vos rollouts !</p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PRÉ-REQUIS                                                    -->
+    <!-- ============================================================ -->
+    <section id="prerequis" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-blue-600">1</span>
+            <h2 class="text-3xl font-bold text-slate-800">Pré-requis</h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">À vérifier avant de commencer</h3>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><i class="fa-regular fa-square-check mr-2 text-emerald-600"></i>Docker démarré</li>
+                <li><i class="fa-regular fa-square-check mr-2 text-emerald-600"></i>k3d installé</li>
+                <li><i class="fa-regular fa-square-check mr-2 text-emerald-600"></i>kubectl disponible</li>
+                <li><i class="fa-regular fa-square-check mr-2 text-emerald-600"></i>Compte Git (GitHub ou GitLab) pour rendre le travail</li>
+            </ul>
+        </div>
+
+        <div class="box-tip p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-cyan-900 mb-3"><i class="fa-solid fa-cube mr-2"></i>Cluster k3d</h3>
+            <p class="text-sm text-cyan-900 mb-3">Si votre cluster du TP existe encore et a été créé avec le mapping de port <code class="code-font bg-cyan-100 px-1 rounded">8080:80@loadbalancer</code>, vous pouvez le réutiliser. Sinon, créez-en un neuf (1 control-plane + 2 agents, port 8080 du host mappé sur le port 80 du loadbalancer, Traefik désactivé).</p>
+            <p class="text-sm text-cyan-900">Une fois le cluster prêt, vérifiez que vos 3 nœuds sont au statut <strong>Ready</strong>.</p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ARCHITECTURE                                                  -->
+    <!-- ============================================================ -->
+    <section id="archi" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-emerald-600">2</span>
+            <h2 class="text-3xl font-bold text-slate-800">Architecture cible</h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+            <div class="bg-slate-800 rounded-xl p-4 code-font text-xs text-slate-300">
+<pre class="text-green-300 whitespace-pre">
+   Votre navigateur
+   http://localhost:8080
+          │
+          ▼
+   ┌──────────────────────────────────┐
+   │ Service "frontend" (LoadBalancer)│  port 80
+   └──────────────┬───────────────────┘
+                  │
+        ┌─────────┴──────────┐
+        ▼                    ▼
+   ┌─────────┐         ┌─────────┐
+   │ pod fr. │         │ pod fr. │     Deployment "frontend"
+   │ nginx   │         │ nginx   │     2 replicas
+   └────┬────┘         └────┬────┘
+        │ BACKEND_HOST / PORT (ConfigMap)
+        └─────────┬──────────┘
+                  │ proxy_pass /api/
+                  ▼
+   ┌──────────────────────────────────┐
+   │ Service "backend" (ClusterIP)    │  port 3000
+   └──────────────┬───────────────────┘
+                  │
+                  ▼
+            ┌─────────┐
+            │ pod back│              Deployment "backend"
+            │ node.js │              1 replica
+            └─────────┘
+                  │ ADMIN_TOKEN (Secret)
+                  ▼
+            in-memory todos
+</pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- DOSSIER MANIFESTS                                             -->
+    <!-- ============================================================ -->
+    <section id="manifests" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-purple-600">3</span>
+            <h2 class="text-3xl font-bold text-slate-800">Le dossier <code class="code-font">manifests/</code></h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+            <p class="text-sm text-gray-700 mb-4">Tout votre travail se fait dans le dossier <code class="code-font bg-gray-100 px-1 rounded">manifests/</code> du repo qui vous a été fourni. Six fichiers vous attendent :</p>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-left">
+                            <th class="p-3 border border-slate-200">Fichier</th>
+                            <th class="p-3 border border-slate-200">État</th>
+                            <th class="p-3 border border-slate-200">Votre travail</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-700">
+                        <tr>
+                            <td class="p-3 border border-slate-200 code-font text-slate-400 italic">(pas de fichier Secret)</td>
+                            <td class="p-3 border border-slate-200 text-slate-500">Créé en impératif</td>
+                            <td class="p-3 border border-slate-200"><span class="font-semibold text-amber-700">Création impérative</span></td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200 code-font">02-configmap.yaml</td>
+                            <td class="p-3 border border-slate-200">À écrire</td>
+                            <td class="p-3 border border-slate-200"><span class="font-semibold text-sky-700">From scratch</span></td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 border border-slate-200 code-font">03-deployment-back.yaml</td>
+                            <td class="p-3 border border-slate-200">Squelette avec <code class="code-font bg-amber-100 text-amber-800 px-1 rounded text-xs"># TODO</code></td>
+                            <td class="p-3 border border-slate-200"><span class="font-semibold text-amber-700">Compléter</span></td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200 code-font">04-deployment-front.yaml</td>
+                            <td class="p-3 border border-slate-200">À écrire</td>
+                            <td class="p-3 border border-slate-200"><span class="font-semibold text-sky-700">From scratch</span> (s'inspirer du back)</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 border border-slate-200 code-font">05-service-back.yaml</td>
+                            <td class="p-3 border border-slate-200"><i class="fa-solid fa-check text-emerald-600 mr-1"></i>Fourni complet</td>
+                            <td class="p-3 border border-slate-200 text-slate-500">Rien à modifier</td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200 code-font">06-service-front.yaml</td>
+                            <td class="p-3 border border-slate-200"><i class="fa-solid fa-check text-emerald-600 mr-1"></i>Fourni complet</td>
+                            <td class="p-3 border border-slate-200 text-slate-500">Rien à modifier</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 1 — SECRET                                              -->
+    <!-- ============================================================ -->
+    <section id="etape1" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-rose-600">4</span>
+            <h2 class="text-3xl font-bold text-slate-800">Étape 1 — Secret <span class="points-pill">3 PTS</span></h2>
+        </div>
+
+        <div class="box-objectif p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-blue-900 mb-2"><i class="fa-solid fa-bullseye mr-2"></i>Objectif</h3>
+            <p class="text-sm text-blue-900">Stocker en cluster un token administrateur consommé par le backend, sans l'écrire en clair dans le manifest du Deployment ni dans le repo Git.</p>
+        </div>
+
+        <div class="box-concept p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-purple-900 mb-2"><i class="fa-solid fa-graduation-cap mr-2"></i>Méthode — création impérative</h3>
+            <p class="text-sm text-purple-900 mb-2">Comme vu au <strong>module 7.2 du TP-k3d</strong>, on crée les Secrets en <strong>mode impératif</strong> (en ligne de commande) — pour ne <strong>jamais</strong> committer de credentials en clair dans un fichier YAML versionné sur Git.</p>
+            <p class="text-sm text-purple-900">Pour ce TD, il n'y a donc <strong>pas de fichier <code class="code-font bg-purple-100 px-1 rounded">manifests/01-secret.yaml</code> à écrire</strong>. La commande exacte que vous avez exécutée figurera dans le README de votre rendu (étape 5).</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Cahier des charges</h3>
+            <p class="text-sm text-gray-700 mb-3">Créez un Secret générique (mode impératif) qui contient :</p>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Nom du Secret : <code class="code-font bg-gray-100 px-1 rounded">backend-secret</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Une clé : <code class="code-font bg-gray-100 px-1 rounded">admin-token</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Valeur exacte : <code class="code-font bg-gray-100 px-1 rounded">s3cr3t-token-td</code></li>
+            </ul>
+        </div>
+
+        <div class="box-validation p-5 rounded-xl shadow-sm">
+            <h4 class="font-bold text-emerald-900 mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Comment vérifier votre travail</h4>
+            <ul class="text-sm text-emerald-900 space-y-1 list-disc list-inside ml-2">
+                <li>Listez les Secrets de votre namespace courant — <code class="code-font bg-emerald-100 px-1 rounded">backend-secret</code> doit apparaître</li>
+                <li>Son type doit être <code class="code-font bg-emerald-100 px-1 rounded">Opaque</code> et il doit contenir <strong>une seule donnée</strong> (colonne DATA = 1)</li>
+                <li>Si vous voulez aller plus loin : récupérez le contenu du Secret et décodez la valeur base64 — vous devez retomber sur la valeur exacte du cahier des charges</li>
+            </ul>
+            <p class="text-xs text-emerald-800 mt-3"><strong>Livrable :</strong> la commande exacte que vous avez exécutée doit apparaître dans le README de rendu (cf. section 9).</p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 2 — CONFIGMAP                                           -->
+    <!-- ============================================================ -->
+    <section id="etape2" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-rose-600">5</span>
+            <h2 class="text-3xl font-bold text-slate-800">Étape 2 — ConfigMap <span class="points-pill">3 PTS</span></h2>
+        </div>
+
+        <div class="box-objectif p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-blue-900 mb-2"><i class="fa-solid fa-bullseye mr-2"></i>Objectif</h3>
+            <p class="text-sm text-blue-900">Externaliser la configuration du frontend (où joindre le backend ?) dans un objet K8s, plutôt qu'en dur dans l'image.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Cahier des charges</h3>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Fichier : <code class="code-font bg-gray-100 px-1 rounded">manifests/02-configmap.yaml</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Nom : <code class="code-font bg-gray-100 px-1 rounded">frontend-config</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Deux clés dans <code class="code-font bg-gray-100 px-1 rounded">data</code> :
+                    <ul class="ml-6 mt-1 space-y-1">
+                        <li>– <code class="code-font bg-gray-100 px-1 rounded">BACKEND_HOST</code> : nom du Service backend dans le cluster</li>
+                        <li>– <code class="code-font bg-gray-100 px-1 rounded">BACKEND_PORT</code> : port d'écoute du Service backend</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-concept p-5 rounded-xl shadow-sm mb-4">
+            <h4 class="font-bold text-purple-900 mb-2"><i class="fa-solid fa-graduation-cap mr-2"></i>Rappel — DNS interne du cluster</h4>
+            <p class="text-sm text-purple-900">Dans le même namespace, le <strong>nom court du Service</strong> suffit (résolu par CoreDNS). Hors namespace : <code class="code-font bg-purple-100 px-1 rounded">&lt;svc&gt;.&lt;ns&gt;.svc.cluster.local</code>.</p>
+            <p class="text-sm text-purple-900 mt-2">Référez-vous à <code class="code-font bg-purple-100 px-1 rounded">05-service-back.yaml</code> pour trouver les bonnes valeurs.</p>
+        </div>
+
+        <div class="box-validation p-5 rounded-xl shadow-sm">
+            <h4 class="font-bold text-emerald-900 mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Comment vérifier votre travail</h4>
+            <ul class="text-sm text-emerald-900 space-y-1 list-disc list-inside ml-2">
+                <li>Appliquez votre manifest dans le cluster</li>
+                <li>Listez les ConfigMaps — <code class="code-font bg-emerald-100 px-1 rounded">frontend-config</code> doit apparaître avec DATA = 2 (les deux clés)</li>
+                <li>Inspectez son contenu en YAML pour confirmer que <code class="code-font bg-emerald-100 px-1 rounded">BACKEND_HOST</code> et <code class="code-font bg-emerald-100 px-1 rounded">BACKEND_PORT</code> sont présentes avec les bonnes valeurs</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 3 — DEPLOYMENT BACKEND                                  -->
+    <!-- ============================================================ -->
+    <section id="etape3" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-rose-600">6</span>
+            <h2 class="text-3xl font-bold text-slate-800">Étape 3 — Deployment backend <span class="points-pill">4 PTS</span></h2>
+        </div>
+
+        <div class="box-objectif p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-blue-900 mb-2"><i class="fa-solid fa-bullseye mr-2"></i>Objectif</h3>
+            <p class="text-sm text-blue-900">Déployer le backend Node.js avec auto-healing, health check et injection sécurisée du token via Secret.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Cahier des charges</h3>
+            <p class="text-sm text-gray-700 mb-3">Ouvrez le squelette <code class="code-font bg-gray-100 px-1 rounded">manifests/03-deployment-back.yaml</code> et remplissez les <code class="code-font bg-amber-100 text-amber-800 px-1 rounded"># TODO</code>.</p>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i><code class="code-font bg-gray-100 px-1 rounded">replicas: 1</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Image : <code class="code-font bg-gray-100 px-1 rounded">stephanparichon/epsi-k8s-bff:1.0</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Port conteneur : <code class="code-font bg-gray-100 px-1 rounded">3000</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Labels <code class="code-font bg-gray-100 px-1 rounded">app=backend</code> cohérents entre <code class="code-font">selector</code> et <code class="code-font">template</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Variable d'env <code class="code-font bg-gray-100 px-1 rounded">ADMIN_TOKEN</code> injectée depuis le <strong>Secret</strong> de l'étape 1 (clé <code class="code-font">admin-token</code>)</li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i><code class="code-font bg-gray-100 px-1 rounded">readinessProbe</code> HTTP GET <code class="code-font">/health</code> sur le port 3000 (<em>initialDelaySeconds 3, periodSeconds 5</em>)</li>
+            </ul>
+        </div>
+
+        <div class="box-warning p-4 rounded-xl shadow-sm mb-4">
+            <i class="fa-solid fa-triangle-exclamation mr-2 text-red-600"></i>
+            <span class="text-sm text-red-900">Le backend <strong>refuse de démarrer</strong> si <code class="code-font bg-red-100 px-1 rounded">ADMIN_TOKEN</code> n'est pas défini. Si vous voyez le pod en <code class="code-font bg-red-100 px-1 rounded">CrashLoopBackOff</code>, lisez les logs du pod backend pour confirmer la cause.</span>
+        </div>
+
+        <div class="box-validation p-5 rounded-xl shadow-sm">
+            <h4 class="font-bold text-emerald-900 mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Comment vérifier votre travail</h4>
+            <ul class="text-sm text-emerald-900 space-y-1 list-disc list-inside ml-2">
+                <li>Appliquez votre manifest. <strong>Attention :</strong> le Secret de l'étape 1 doit déjà exister, sinon le pod crashloopera</li>
+                <li>Surveillez le déploiement du rollout : il doit aboutir sans erreur</li>
+                <li>Listez les pods filtrés par le label <code class="code-font bg-emerald-100 px-1 rounded">app=backend</code> — vous devez voir <strong>1 pod en Running, READY 1/1</strong></li>
+                <li>Si le pod est en <code class="code-font bg-emerald-100 px-1 rounded">CrashLoopBackOff</code> : lisez ses logs pour identifier la cause (Secret mal référencé ? clé incorrecte ?)</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPE 4 — DEPLOYMENT FRONTEND                                 -->
+    <!-- ============================================================ -->
+    <section id="etape4" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-rose-600">7</span>
+            <h2 class="text-3xl font-bold text-slate-800">Étape 4 — Deployment frontend <span class="points-pill">4 PTS</span></h2>
+        </div>
+
+        <div class="box-objectif p-5 rounded-xl shadow-sm mb-6">
+            <h3 class="font-bold text-blue-900 mb-2"><i class="fa-solid fa-bullseye mr-2"></i>Objectif</h3>
+            <p class="text-sm text-blue-900">Déployer le frontend en haute disponibilité (2 réplicas), consommer la ConfigMap, et préparer un rolling update sans interruption.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Cahier des charges</h3>
+            <p class="text-sm text-gray-700 mb-3">Écrivez <strong>from scratch</strong> <code class="code-font bg-gray-100 px-1 rounded">manifests/04-deployment-front.yaml</code> en vous inspirant du back.</p>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Nom : <code class="code-font bg-gray-100 px-1 rounded">frontend</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i><code class="code-font bg-gray-100 px-1 rounded">replicas: 2</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Image : <code class="code-font bg-gray-100 px-1 rounded">stephanparichon/epsi-k8s-front:1.0</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Port conteneur : <code class="code-font bg-gray-100 px-1 rounded">80</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Variables <code class="code-font bg-gray-100 px-1 rounded">BACKEND_HOST</code> et <code class="code-font bg-gray-100 px-1 rounded">BACKEND_PORT</code> injectées depuis la <strong>ConfigMap</strong> <code class="code-font">frontend-config</code> via <code class="code-font bg-gray-100 px-1 rounded">envFrom: configMapRef</code></li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i><code class="code-font bg-gray-100 px-1 rounded">readinessProbe</code> HTTP GET <code class="code-font">/health</code> sur le port 80 (<em>initialDelaySeconds 2, periodSeconds 5</em>)</li>
+                <li><i class="fa-solid fa-chevron-right mr-2 text-rose-500 text-xs"></i>Stratégie de rolling update : <code class="code-font bg-gray-100 px-1 rounded">maxUnavailable: 0</code>, <code class="code-font bg-gray-100 px-1 rounded">maxSurge: 1</code></li>
+            </ul>
+        </div>
+
+        <div class="box-concept p-5 rounded-xl shadow-sm mb-4">
+            <h4 class="font-bold text-purple-900 mb-2"><i class="fa-solid fa-graduation-cap mr-2"></i>Rappel — <code class="code-font bg-purple-100 px-1 rounded">envFrom</code> vs <code class="code-font bg-purple-100 px-1 rounded">env</code></h4>
+            <p class="text-sm text-purple-900"><code class="code-font bg-purple-100 px-1 rounded">envFrom + configMapRef</code> injecte <strong>toutes les clés</strong> de la ConfigMap comme variables d'env, d'un coup. <code class="code-font bg-purple-100 px-1 rounded">env + valueFrom + configMapKeyRef</code> serait à utiliser pour <strong>une seule clé</strong>. Ici on veut les deux clés → <code class="code-font bg-purple-100 px-1 rounded">envFrom</code> est plus concis.</p>
+        </div>
+
+        <div class="box-warning p-4 rounded-xl shadow-sm mb-4">
+            <i class="fa-solid fa-triangle-exclamation mr-2 text-red-600"></i>
+            <span class="text-sm text-red-900"><strong>Attention :</strong> avant d'appliquer ce Deployment, le <strong>Service backend</strong> (<code class="code-font bg-red-100 px-1 rounded">05-service-back.yaml</code>, fourni) doit déjà exister dans le cluster. Sinon nginx crashe au démarrage avec <code class="code-font bg-red-100 px-1 rounded">host not found in upstream "backend"</code> (nginx résout les DNS au démarrage, pas à chaque requête). C'est la symétrie du piège de l'étape 3 avec le Secret. Si vous découvrez le problème après coup, un <code class="code-font bg-red-100 px-1 rounded">kubectl rollout restart deployment/frontend</code> force la résolution une fois le Service appliqué.</span>
+        </div>
+
+        <div class="box-validation p-5 rounded-xl shadow-sm">
+            <h4 class="font-bold text-emerald-900 mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Comment vérifier votre travail</h4>
+            <ul class="text-sm text-emerald-900 space-y-1 list-disc list-inside ml-2">
+                <li>Appliquez votre manifest et surveillez le rollout jusqu'à sa fin</li>
+                <li>Listez les pods filtrés par le label <code class="code-font bg-emerald-100 px-1 rounded">app=frontend</code> — vous devez voir <strong>2 pods en Running</strong>, chacun avec READY 1/1</li>
+                <li>Inspectez un pod pour confirmer que les variables d'environnement <code class="code-font bg-emerald-100 px-1 rounded">BACKEND_HOST</code> et <code class="code-font bg-emerald-100 px-1 rounded">BACKEND_PORT</code> y sont bien injectées (depuis la ConfigMap)</li>
+                <li>Inspectez la spec du Deployment pour vérifier que la stratégie de rolling update est bien configurée comme demandé</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- ÉTAPES 5, 6, 7 — TESTER & ROLLING UPDATE & CURL               -->
+    <!-- ============================================================ -->
+    <section id="run" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-orange-500">8</span>
+            <h2 class="text-3xl font-bold text-slate-800">Appliquer, tester, mettre à jour</h2>
+        </div>
+
+        <!-- Étape 5 -->
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Étape 5 — Tout appliquer et tester <span class="points-pill">2 PTS</span></h3>
+            <ol class="list-decimal list-inside text-sm text-gray-700 space-y-2 mb-3 ml-1">
+                <li>Créez le Secret de l'étape 1 (mode impératif).</li>
+                <li>Appliquez les manifests YAML du dossier <code class="code-font bg-gray-100 px-1 rounded">manifests/</code>. <strong>L'ordre d'application a son importance</strong> : un pod qui démarre avant que ses dépendances (Secret, Service à résoudre via DNS…) existent peut crasher. À vous de trouver le bon ordre.</li>
+                <li>Vérifiez que tout est en place : pods Running et Ready, rollouts terminés, ressources attendues présentes dans le cluster.</li>
+            </ol>
+            <p class="text-sm text-gray-700">Ouvrez <a href="http://localhost:8080" target="_blank" class="text-blue-600 underline code-font">http://localhost:8080</a>. L'application doit charger. <strong>Ajoutez et supprimez quelques todos.</strong></p>
+            <p class="text-sm text-gray-700 mt-2">La ligne <code class="code-font bg-gray-100 px-1 rounded">Backend pod : backend-xxxx</code> en haut de l'app vous indique quel pod backend a répondu.</p>
+        </div>
+
+        <!-- Étape 6 -->
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Étape 6 — Rolling update à observer <span class="points-pill">2 PTS</span></h3>
+
+            <div class="box-concept p-4 rounded-lg text-sm mb-3">
+                <i class="fa-solid fa-graduation-cap mr-2 text-purple-600"></i>
+                <span class="text-purple-900"><strong>Méthode déclarative</strong> — on modifie le manifest YAML (la source de vérité versionnée dans Git), puis on applique. C'est l'approche GitOps : le repo reflète toujours l'état désiré du cluster.</span>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-3">Avant de lancer la mise à jour, ouvrez dans un terminal séparé une commande qui <strong>surveille en temps réel</strong> l'évolution des pods, pour observer le rolling update se dérouler.</p>
+
+            <p class="text-sm text-gray-700 mb-3"><strong>1.</strong> Éditez le fichier <code class="code-font bg-gray-100 px-1 rounded">manifests/04-deployment-front.yaml</code> et changez la version de l'image du conteneur frontend de <code class="code-font bg-gray-100 px-1 rounded">epsi-k8s-front:1.0</code> vers <code class="code-font bg-gray-100 px-1 rounded">epsi-k8s-front:2.0</code>.</p>
+
+            <p class="text-sm text-gray-700 mb-3"><strong>2.</strong> Demandez à Kubernetes de réconcilier l'état du cluster avec votre manifest modifié, puis suivez le rollout jusqu'à sa fin.</p>
+
+            <p class="text-sm text-gray-700 mb-3"><strong>3.</strong> Rafraîchissez le navigateur → vous devez voir le <strong>thème violet/orange</strong> et le badge <strong>"v2.0 — NEW"</strong>.</p>
+
+            <div class="box-reflexion p-3 rounded-lg text-sm">
+                <i class="fa-solid fa-camera-retro mr-2 text-amber-600"></i>
+                <strong>Capture obligatoire :</strong> deux screenshots — avant (v1 fond bleu) et après (v2 fond violet) — à joindre au rendu Git. Et n'oubliez pas de <strong>committer la nouvelle version du YAML</strong> dans votre repo.
+            </div>
+        </div>
+
+        <!-- Étape 7 -->
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Étape 7 — Tester le Secret avec curl <span class="points-pill">2 PTS</span></h3>
+            <p class="text-sm text-gray-700 mb-3">Le backend expose une route administrateur protégée par un en-tête HTTP qui doit contenir le token de l'étape 1 :</p>
+            <ul class="text-sm text-gray-700 space-y-1 mb-3 ml-2 list-disc list-inside">
+                <li>Méthode : <code class="code-font bg-gray-100 px-1 rounded">POST</code></li>
+                <li>Route : <code class="code-font bg-gray-100 px-1 rounded">/api/admin/clear</code> (exposée via le frontend à <code class="code-font bg-gray-100 px-1 rounded">http://localhost:8080</code>)</li>
+                <li>En-tête attendu : <code class="code-font bg-gray-100 px-1 rounded">X-Admin-Token</code></li>
+            </ul>
+            <p class="text-sm text-gray-700 mb-3">Avec <code class="code-font bg-gray-100 px-1 rounded">curl</code>, démontrez les deux cas :</p>
+            <ol class="list-decimal list-inside text-sm text-gray-700 space-y-1 mb-3 ml-1">
+                <li>Sans en-tête (ou avec un token erroné) → la route doit refuser la requête (<strong>401</strong>).</li>
+                <li>Avec l'en-tête contenant la bonne valeur → la route doit répondre OK (<strong>200</strong>) et vider les todos.</li>
+            </ol>
+            <p class="text-sm text-gray-700">Rafraîchissez le navigateur : les todos doivent avoir disparu.</p>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- LIVRABLE                                                      -->
+    <!-- ============================================================ -->
+    <section id="livrable" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-cyan-600">9</span>
+            <h2 class="text-3xl font-bold text-slate-800">Livrable</h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3"><i class="fa-brands fa-git-alt mr-2 text-orange-500"></i>Dépôt Git public (GitHub ou GitLab)</h3>
+            <p class="text-sm text-gray-700 mb-3">Le dépôt doit contenir l'arborescence suivante :</p>
+            <div class="bg-slate-800 rounded-lg p-4 code-font text-xs text-slate-300">
+<pre class="text-amber-300 whitespace-pre">votre-repo/
+├── manifests/
+│   ├── 02-configmap.yaml
+│   ├── 03-deployment-back.yaml
+│   ├── 04-deployment-front.yaml
+│   ├── 05-service-back.yaml         (recopié du sujet)
+│   └── 06-service-front.yaml        (recopié du sujet)
+├── screenshots/
+│   ├── app-v1.png
+│   ├── app-v2.png
+│   └── kubectl-get-all.png
+└── README.md   (avec toutes les commandes lancees pendant le TD, dans l'ordre)</pre>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3"><i class="fa-solid fa-file-lines mr-2 text-blue-500"></i>Contenu du <code class="code-font">README.md</code> de rendu</h3>
+            <ol class="list-decimal list-inside text-sm text-gray-700 space-y-2 ml-2">
+                <li><strong>Toutes les commandes exécutées pendant le TD</strong>, dans l'ordre chronologique, copiables. À minima :
+                    <ul class="list-disc list-inside ml-6 mt-1 text-gray-600">
+                        <li>création du cluster k3d</li>
+                        <li>la création du Secret (étape 1, mode impératif)</li>
+                        <li>l'application des manifests YAML</li>
+                        <li>les commandes utilisées pour <strong>vérifier votre travail</strong> à chaque étape (lister les Secrets/ConfigMaps, inspecter les pods, suivre les rollouts, etc.)</li>
+                        <li>l'application de la nouvelle version du YAML pour déclencher le rolling update</li>
+                        <li>les deux requêtes <code class="code-font bg-gray-100 px-1 rounded">curl</code> de l'étape 7</li>
+                    </ul>
+                </li>
+                <li><strong>Trois captures d'écran</strong> : appli v1, appli v2 après rolling update, sortie d'une commande montrant l'état global des ressources Kubernetes déployées (pods, services, deployments, configmaps, secrets)</li>
+                <li><strong>Réponse à la question</strong> (3-5 lignes chacune)</li>
+            </ol>
+
+            <div class="mt-4 grid grid-cols-1 gap-4">
+                <div class="box-reflexion p-4 rounded-lg text-sm">
+                    <p class="font-bold text-amber-900 mb-1">Q1</p>
+                    <p class="text-amber-900">Que se passe-t-il si vous supprimez manuellement un pod frontend ? Pourquoi ?</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- BARÈME                                                        -->
+    <!-- ============================================================ -->
+    <section id="bareme" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-yellow-500">10</span>
+            <h2 class="text-3xl font-bold text-slate-800">Barème (sur 20)</h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-yellow-50 text-yellow-900 text-left">
+                            <th class="p-3 border border-yellow-200">Critère</th>
+                            <th class="p-3 border border-yellow-200 text-center w-24">Points</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-700">
+                        <tr>
+                            <td class="p-3 border border-slate-200">Secret créé en impératif (commande correcte dans le README)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">3</td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200">ConfigMap correct (clés cohérentes avec Service backend)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">3</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 border border-slate-200">Deployment backend (image, port, env Secret, probe)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">4</td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200">Deployment frontend (image, replicas, envFrom, probe, rolling update)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">4</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 border border-slate-200">Application fonctionnelle (todos visibles dans le navigateur)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">2</td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="p-3 border border-slate-200">Rolling update démontré (captures v1 + v2)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">2</td>
+                        </tr>
+                        <tr>
+                            <td class="p-3 border border-slate-200">Test Secret avec curl (les deux cas 401 et 200)</td>
+                            <td class="p-3 border border-slate-200 text-center font-bold">2</td>
+                        </tr>
+                        <tr class="bg-yellow-100 text-yellow-900 font-bold">
+                            <td class="p-3 border border-yellow-300">Total</td>
+                            <td class="p-3 border border-yellow-300 text-center text-lg">20</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- RESSOURCES                                                    -->
+    <!-- ============================================================ -->
+    <section id="aide" class="scroll-mt-32 border-t pt-10">
+        <div class="flex items-center mb-6">
+            <span class="section-badge bg-slate-600"><i class="fa-solid fa-link text-xl"></i></span>
+            <h2 class="text-3xl font-bold text-slate-800">Ressources</h2>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+            <div class="box-tip p-4 rounded-xl shadow-sm">
+                <ul class="text-sm text-cyan-900 space-y-1">
+                    <li><i class="fa-solid fa-arrow-right mr-2 text-cyan-600"></i><a href="https://kubernetes.io/docs/concepts/" target="_blank" class="underline hover:text-cyan-700">kubernetes.io — Concepts</a></li>
+                    <li><i class="fa-solid fa-arrow-right mr-2 text-cyan-600"></i><a href="https://k3d.io/" target="_blank" class="underline hover:text-cyan-700">k3d.io</a></li>
+                    <li><i class="fa-solid fa-arrow-right mr-2 text-cyan-600"></i>Vos manifests précédents du TP k3d (modules 3, 4, 7)</li>
+                    <li><i class="fa-solid fa-arrow-right mr-2 text-cyan-600"></i>Cheatsheet du cours : <code class="code-font">0- installation k3s/commands.html</code></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="bg-slate-900 text-slate-400 text-center text-xs py-6 mt-12">
+    EPSI 2025-2026
+</footer>
+
+</body>
+</html>

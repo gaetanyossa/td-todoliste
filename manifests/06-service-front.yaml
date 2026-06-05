@@ -1,0 +1,26 @@
+# ============================================================
+# Etape 6 — Service frontend (FOURNI — ne rien modifier)
+# ============================================================
+#
+# Service de type LoadBalancer : expose le frontend en dehors du cluster
+# via le load balancer integre a k3d (k3d-proxy).
+# Comme votre cluster a ete cree avec :
+#     k3d cluster create ... --port "8080:80@loadbalancer"
+# vous accederez a l'application via : http://localhost:8080
+#
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

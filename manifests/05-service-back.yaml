@@ -1,0 +1,25 @@
+# ============================================================
+# Etape 5 — Service backend (FOURNI — ne rien modifier)
+# ============================================================
+#
+# Service de type ClusterIP : accessible uniquement DEPUIS le cluster
+# (par le pod frontend), pas depuis votre machine.
+# Le nom DNS resolvable dans le cluster est : "backend"
+# (en dehors du namespace : backend.default.svc.cluster.local)
+#
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
